@@ -67,7 +67,7 @@ chat_models = [
 class OpenAI(LLM):
     cache = LLM._open_cache("_openai.diskcache")
 
-    def __init__(self, model=None, caching=True, max_retries=5, max_calls_per_min=60,
+    def __init__(self, model=None, deployment_id=None, caching=True, max_retries=5, max_calls_per_min=60,
                  api_key=None, api_type="open_ai", api_base=None, api_version=None,
                  temperature=0.0, chat_mode="auto", organization=None, rest_call=False,
                  allowed_special_tokens={"<|endoftext|>", "<|endofprompt|>"},
@@ -138,7 +138,8 @@ class OpenAI(LLM):
         self.temperature = temperature
         self.organization = organization
         self.rest_call = rest_call
-
+        self.deployment_id = deployment_id
+        
         if not self.rest_call:
             self.caller = self._library_call
         else:
@@ -301,6 +302,11 @@ class OpenAI(LLM):
         if self.api_base is not None:
             openai.api_base = self.api_base
 
+        if self.deployment_id is not None:
+            openai.api_base = os.environ.get("OPENAI_API_BASE", None)
+            openai.api_type = "azure"
+            openai.api_version = os.environ.get("OPENAI_API_VERSION", None)
+            
         assert openai.api_key is not None, "You must provide an OpenAI API key to use the OpenAI LLM. Either pass it in the constructor, set the OPENAI_API_KEY environment variable, or create the file ~/.openai_api_key with your key in it."
         
         if self.chat_mode:
@@ -309,10 +315,10 @@ class OpenAI(LLM):
             del kwargs['echo']
             del kwargs['logprobs']
             # print(kwargs)
-            out = openai.ChatCompletion.create(**kwargs)
+            out = openai.ChatCompletion.create(deployment_id=self.deployment_id, **kwargs)
             out = add_text_to_chat_mode(out)
         else:
-            out = openai.Completion.create(**kwargs)
+            out = openai.Completion.create(deployment_id=self.deployment_id, **kwargs)
         
         # restore the params of the openai library
         openai.api_key = prev_key
